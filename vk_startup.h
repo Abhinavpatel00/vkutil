@@ -1,0 +1,77 @@
+#include "tinytypes.h"
+#include "vk_queue.h"
+
+
+typedef struct VkFeatureChain
+{
+    VkPhysicalDeviceFeatures2 core;
+    VkPhysicalDeviceVulkan12Features v12;
+    VkPhysicalDeviceVulkan13Features v13;
+} VkFeatureChain;
+typedef struct renderer_context_desc
+{
+    const char* app_name;
+
+    const char** instance_layers;
+    const char** instance_extensions;
+    const char** device_extensions;
+
+    uint32_t instance_layer_count;
+    uint32_t instance_extension_count;
+    uint32_t device_extension_count;
+
+    bool enable_gpu_based_validation;
+bool use_custom_features;
+    VkFeatureChain custom_features;
+} renderer_context_desc;
+
+
+typedef struct renderer_context
+{
+    VkInstance instance;
+
+    VkDebugUtilsMessengerEXT debug_utils;
+    uint32_t                 debug_utils_enabled : 1;
+} renderer_context;
+
+void create_instance(renderer_context* ctx, const renderer_context_desc* desc);
+
+
+VkPhysicalDevice pick_physical_device(VkInstance instance, VkSurfaceKHR surface, renderer_context_desc* desc);
+
+void create_device(VkPhysicalDevice       physical,
+                   VkSurfaceKHR           surface,
+                   renderer_context_desc* renderer_ctx_desc,
+                   const queue_families   q,
+                   VkDevice*              out_device);
+
+
+bool device_supports_extensions(VkPhysicalDevice gpu, const char** req, uint32_t req_count);
+bool is_instance_extension_supported(const char* extension_name);
+
+void query_device_features(VkPhysicalDevice gpu, VkFeatureChain* out);
+
+
+typedef struct RendererCaps
+{
+    bool dynamic_rendering;
+    bool sync2;
+    bool descriptor_indexing;
+    bool timeline_semaphores;
+    bool multi_draw_indirect;
+    bool multi_draw_indirect_count;
+    bool buffer_device_address;
+    bool maintenance4;
+} RendererCaps;
+
+//
+//
+// create_instance()
+// pick_physical_device()
+// find_queue_families()
+// create_device()
+// init_device_queues()
+//
+//
+//
+//
