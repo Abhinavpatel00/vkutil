@@ -116,13 +116,13 @@ VkDescriptorSetLayout descriptor_layout_cache_get(VkDevice device, DescriptorLay
     return layout;
 }
 
-void descriptor_layout_cache_destroy(VkDevice device, DescriptorLayoutCache* cache) n
+void descriptor_layout_cache_destroy(VkDevice device, DescriptorLayoutCache* cache)
 {
     for(int i = 0; i < arrlen(cache->entries); i++)
         vkDestroyDescriptorSetLayout(device, cache->entries[i].layout, NULL);
 
-    arrfree(cache->entries); }
-
+    arrfree(cache->entries);
+}
 
 
 VkDescriptorSetLayout get_or_create_set_layout(VkDevice                            device,
