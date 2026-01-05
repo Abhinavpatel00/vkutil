@@ -1,5 +1,5 @@
-#ifndef FLOW_SYNC_H
-#define FLOW_SYNC_H
+#ifndef VK_SYNC_H_
+#define VK_SYNC_H_
 
 
 #include "vk_defaults.h"
@@ -25,4 +25,4 @@ void vk_create_semaphores(VkDevice device, uint32_t count, VkSemaphore* out_sema
 
 void vk_destroy_semaphores(VkDevice device, uint32_t count, VkSemaphore* semaphores);
 
-#endif /* FLOW_SYNC_H */
+#endif /* VK_SYNC_H_ */

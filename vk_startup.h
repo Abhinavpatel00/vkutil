@@ -1,10 +1,13 @@
-#include "tinytypes.h"
+#ifndef VK_STARTUP_H_
+#define VK_STARTUP_H_
+
+#include "vk_defaults.h"
 #include "vk_queue.h"
 
 
 typedef struct VkFeatureChain
 {
-    VkPhysicalDeviceFeatures2 core;
+    VkPhysicalDeviceFeatures2        core;
     VkPhysicalDeviceVulkan12Features v12;
     VkPhysicalDeviceVulkan13Features v13;
 } VkFeatureChain;
@@ -19,10 +22,13 @@ typedef struct renderer_context_desc
     uint32_t instance_layer_count;
     uint32_t instance_extension_count;
     uint32_t device_extension_count;
+    int      enable_validation;
+    int      enable_gpu_based_validation;
 
-    bool enable_gpu_based_validation;
-bool use_custom_features;
-    VkFeatureChain custom_features;
+    VkDebugUtilsMessageSeverityFlagsEXT validation_severity;
+    VkDebugUtilsMessageTypeFlagsEXT     validation_types;
+    bool                                use_custom_features;
+    VkFeatureChain                      custom_features;
 } renderer_context_desc;
 
 
@@ -34,7 +40,7 @@ typedef struct renderer_context
     uint32_t                 debug_utils_enabled : 1;
 } renderer_context;
 
-void create_instance(renderer_context* ctx, const renderer_context_desc* desc);
+void vk_create_instance(renderer_context* ctx, const renderer_context_desc* desc);
 
 
 VkPhysicalDevice pick_physical_device(VkInstance instance, VkSurfaceKHR surface, renderer_context_desc* desc);
@@ -66,7 +72,7 @@ typedef struct RendererCaps
 
 //
 //
-// create_instance()
+// vk_vk_create_instance ()
 // pick_physical_device()
 // find_queue_families()
 // create_device()
@@ -75,3 +81,4 @@ typedef struct RendererCaps
 //
 //
 //
+#endif  // VK_STARTUP_H_

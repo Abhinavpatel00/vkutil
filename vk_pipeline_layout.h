@@ -1,3 +1,6 @@
+#ifndef VK_PIPELINE_LAYOUT_H_
+#define VK_PIPELINE_LAYOUT_H_
+
 #include "vk_defaults.h"
 #include "vk_descriptor.h"
 
@@ -46,3 +49,5 @@ VkPipelineLayout pipeline_layout_cache_build(VkDevice                           
                                              uint32_t                                   set_count,
                                              const VkPushConstantRange*                 push_ranges,
                                              uint32_t                                   push_count);
+
+#endif // VK_PIPELINE_LAYOUT_H_

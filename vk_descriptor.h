@@ -1,8 +1,8 @@
 #include "vk_defaults.h"
 
 
-#ifndef DESCRIPTOR_ALLOCATOR_H
-#define DESCRIPTOR_ALLOCATOR_H
+#ifndef VK_DESCRIPTOR_H_
+#define VK_DESCRIPTOR_H_
 
 typedef struct DescriptorPoolChunk
 {
@@ -52,4 +52,4 @@ VkDescriptorSetLayout get_or_create_set_layout(VkDevice                         
                                                const VkDescriptorSetLayoutBinding* bindings,
                                                uint32_t                            binding_count);
 
-#endif
+#endif // VK_DESCRIPTOR_H_

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef VK_SHADER_REFLECT_H_
+#define VK_SHADER_REFLECT_H_
 
 #include "vk_defaults.h"
 #include "vk_descriptor.h"
@@ -134,3 +135,5 @@ uint32_t shader_reflect_get_vertex_attributes(const ShaderReflection*           
 
 // Print reflection info for debugging
 void shader_reflect_print(const ShaderReflection* reflection);
+
+#endif // VK_SHADER_REFLECT_H_

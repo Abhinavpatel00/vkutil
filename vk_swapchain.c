@@ -25,26 +25,71 @@ VkExtent2D choose_extent(const VkSurfaceCapabilitiesKHR* caps, uint32_t desired_
     extent.height     = CLAMP(extent.height, caps->minImageExtent.height, caps->maxImageExtent.height);
     return extent;
 }
+
+
+VkSurfaceFormatKHR select_surface_format(VkPhysicalDevice gpu, VkSurfaceKHR surface, VkFormat preferred, VkColorSpaceKHR preferred_cs)
+{
+    uint32_t count = 0;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &count, NULL);
+
+    VkSurfaceFormatKHR formats[32];
+    if(count > 32)
+        count = 32;
+
+    vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &count, formats);
+
+    for(uint32_t i = 0; i < count; ++i)
+        if(formats[i].format == preferred && formats[i].colorSpace == preferred_cs)
+            return formats[i];
+
+    return formats[0];
+}
+
+// Choose minImageCount given a user hint, but always respect Vulkan caps.
+static uint32_t choose_min_image_count(const VkSurfaceCapabilities2KHR* caps, uint32_t preferred_hint)
+{
+    const uint32_t min_cap = caps->surfaceCapabilities.minImageCount;
+
+    // Never go below Vulkan's minimum, even if the hint is silly.
+    uint32_t preferred = (preferred_hint > min_cap) ? preferred_hint : min_cap;
+
+    // maxImageCount == 0 means "no upper bound"
+    const uint32_t raw_max = caps->surfaceCapabilities.maxImageCount;
+    const uint32_t max_cap = (raw_max == 0) ? preferred : raw_max;
+
+    // Clamp to [min_cap, max_cap]
+    if(preferred < min_cap)
+        preferred = min_cap;
+    if(preferred > max_cap)
+        preferred = max_cap;
+
+    return preferred;
+}
 void vk_create_swapchain(VkDevice device, VkPhysicalDevice gpu, FlowSwapchain* out_swapchain, const FlowSwapchainCreateInfo* info)
 {
     VkSurfaceCapabilities2KHR caps = query_surface_capabilities(gpu, info->surface);
 
-    VkExtent2D               extent = choose_extent(&caps.surfaceCapabilities, info->width, info->height);
-    VkImageUsageFlags        usage  = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | info->extra_usage;
-    VkSwapchainCreateInfoKHR ci     = {.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-                                       .surface          = info->surface,
-                                       .minImageCount    = info->min_image_count,
-                                       .imageFormat      = info->preferred_format,
-                                       .imageColorSpace  = info->preferred_color_space,
-                                       .imageExtent      = extent,
-                                       .imageArrayLayers = 1,
-                                       .imageUsage       = usage,
-                                       .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
-                                       .preTransform     = caps.surfaceCapabilities.currentTransform,
-                                       .compositeAlpha   = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-                                       .presentMode      = info->preferred_present_mode,
-                                       .clipped          = VK_TRUE,
-                                       .oldSwapchain     = info->old_swapchain};
+    VkExtent2D extent = choose_extent(&caps.surfaceCapabilities, info->width, info->height);
+
+    if(extent.width == 0 || extent.height == 0)
+        return;  // minimized, wait later
+
+
+    VkImageUsageFlags usage = (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | info->extra_usage) & caps.surfaceCapabilities.supportedUsageFlags;
+    VkSwapchainCreateInfoKHR ci = {.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+                                   .surface          = info->surface,
+                                   .minImageCount    = choose_min_image_count(&caps, info->min_image_count),
+                                   .imageFormat      = info->preferred_format,
+                                   .imageColorSpace  = info->preferred_color_space,
+                                   .imageExtent      = extent,
+                                   .imageArrayLayers = 1,
+                                   .imageUsage       = usage,
+                                   .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                                   .preTransform     = caps.surfaceCapabilities.currentTransform,
+                                   .compositeAlpha   = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+                                   .presentMode      = info->preferred_present_mode,
+                                   .clipped          = VK_TRUE,
+                                   .oldSwapchain     = info->old_swapchain};
 
     VK_CHECK(vkCreateSwapchainKHR(device, &ci, NULL, &out_swapchain->swapchain));
 
@@ -96,27 +141,52 @@ void vk_swapchain_destroy(VkDevice device, FlowSwapchain* swapchain)
     memset(swapchain, 0, sizeof(*swapchain));
 }
 
-
-void vk_swapchain_acquire(VkDevice device, FlowSwapchain* swapchain, VkSemaphore image_available_semaphore, VkFence fence, uint64_t timeout)
+bool vk_swapchain_acquire(VkDevice device, FlowSwapchain* sc, VkSemaphore image_available, VkFence fence, uint64_t timeout, bool* needs_recreate)
 {
-    VK_CHECK(vkAcquireNextImageKHR(device, swapchain->swapchain, timeout, image_available_semaphore, fence, &swapchain->current_image));
+    *needs_recreate = false;
+    VkResult r = vkAcquireNextImageKHR(device, sc->swapchain, timeout, image_available, fence, &sc->current_image);
+
+    if(r == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        *needs_recreate = true;
+        return false;
+    }
+
+    if(r == VK_SUBOPTIMAL_KHR)
+    {
+        *needs_recreate = true;
+        return true;
+    }
+
+    VK_CHECK(r);
+    return true;
 }
 
 
-void vk_swapchain_present(VkQueue present_queue, FlowSwapchain* swapchain, const VkSemaphore* wait_semaphores, uint32_t wait_count)
+
+bool vk_swapchain_present(VkQueue present_queue, FlowSwapchain* sc, const VkSemaphore* waits, uint32_t wait_count, bool* needs_recreate)
 {
-    VkPresentInfoKHR present_info = {
+    *needs_recreate = false;
+
+    VkPresentInfoKHR info = {
         .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .pNext              = NULL,
         .waitSemaphoreCount = wait_count,
-        .pWaitSemaphores    = wait_semaphores,
-        .swapchainCount     = 1u,
-        .pSwapchains        = &swapchain->swapchain,
-        .pImageIndices      = &swapchain->current_image,
-        .pResults           = NULL,
+        .pWaitSemaphores    = waits,
+        .swapchainCount     = 1,
+        .pSwapchains        = &sc->swapchain,
+        .pImageIndices      = &sc->current_image,
     };
 
-    vkQueuePresentKHR(present_queue, &present_info);
+    VkResult r = vkQueuePresentKHR(present_queue, &info);
+
+    if(r == VK_ERROR_OUT_OF_DATE_KHR || r == VK_SUBOPTIMAL_KHR)
+    {
+        *needs_recreate = true;
+        return false;
+    }
+
+    VK_CHECK(r);
+    return true;
 }
 
 
@@ -159,6 +229,8 @@ VkPresentModeKHR vk_swapchain_select_present_mode(VkPhysicalDevice physical_devi
 
 void vk_swapchain_recreate(VkDevice device, VkPhysicalDevice gpu, FlowSwapchain* sc, uint32_t new_w, uint32_t new_h)
 {
+    if(new_w == 0 || new_h == 0)
+        return;
     vkDeviceWaitIdle(device);
 
 
@@ -166,7 +238,6 @@ void vk_swapchain_recreate(VkDevice device, VkPhysicalDevice gpu, FlowSwapchain*
     {
         if(sc->image_views[i])
             vkDestroyImageView(device, sc->image_views[i], NULL);
-
     }
 
     vk_destroy_semaphores(device, sc->image_count, sc->render_finished);

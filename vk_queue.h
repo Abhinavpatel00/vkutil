@@ -1,6 +1,6 @@
 
-#ifndef VK_QUEUE_H
-#define VK_QUEUE_H
+#ifndef VK_QUEUE_H_
+#define VK_QUEUE_H_
 
 #include "vk_defaults.h"
 
@@ -49,4 +49,4 @@ void init_device_queues(VkDevice device, queue_families* q);
 }
 #endif
 
-#endif /* VK_QUEUE_H */
+#endif /* VK_QUEUE_H_ */

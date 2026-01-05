@@ -1,6 +1,8 @@
+#ifndef VK_SWAPCHAIN_H_
+#define VK_SWAPCHAIN_H_
+
 #include "vk_defaults.h"
 #include "vk_sync.h"
-#include <vulkan/vulkan_core.h>
 
 #define MAX_SWAPCHAIN_IMAGES 8
 
@@ -42,9 +44,12 @@ typedef struct FlowSwapchainCreateInfo
 
 void vk_create_swapchain(VkDevice device, VkPhysicalDevice gpu, FlowSwapchain* swapchain, const FlowSwapchainCreateInfo* info);
 void vk_swapchain_destroy(VkDevice device, FlowSwapchain* swapchain);
-void vk_swapchain_acquire(VkDevice device, FlowSwapchain* swapchain, VkSemaphore image_available_semaphore, VkFence fence, uint64_t timeout);
-void vk_swapchain_present(VkQueue present_queue, FlowSwapchain* swapchain, const VkSemaphore* wait_semaphores, uint32_t wait_count);
+bool vk_swapchain_acquire(VkDevice device, FlowSwapchain* sc, VkSemaphore image_available, VkFence fence, uint64_t timeout, bool* needs_recreate);
+
+bool vk_swapchain_present(VkQueue present_queue, FlowSwapchain* sc, const VkSemaphore* waits, uint32_t wait_count, bool* needs_recreate);
+
+
 void vk_swapchain_recreate(VkDevice device, VkPhysicalDevice gpu, FlowSwapchain* sc, uint32_t new_w, uint32_t new_h);
 VkPresentModeKHR vk_swapchain_select_present_mode(VkPhysicalDevice physical_device, VkSurfaceKHR surface, bool vsync);
 
-
+#endif /* VK_SWAPCHAIN_H_ */

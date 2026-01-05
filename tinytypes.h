@@ -1,30 +1,24 @@
+#ifndef TINYTYPES_H_
+#define TINYTYPES_H_
 
-#pragma once
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#define STB_DS_IMPLEMENTATION
-#define STB_DS_IMPLEMENTATION
 #include "stb/stb_ds.h"
 #define VK_NO_PROTOTYPES
-#define VOLK_IMPLEMENTATION
 #define GLFW_INCLUDE_VULKAN
-#define STB_IMAGE_IMPLEMENTATION
 #include <GLFW/glfw3.h>
-#define CGLTF_IMPLEMENTATION
 #include "external/cgltf/cgltf.h"
 #define GLFW_EXPOSE_NATIVE_X11
 #define GLFW_EXPOSE_NATIVE_WAYLAND
 #include <GLFW/glfw3native.h>
-#define FAST_OBJ_IMPLEMENTATION
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
 #include "external/VulkanMemoryAllocator/include/vk_mem_alloc.h"
 #include "external/volk/volk.h"
-#define CGLM_IMPLEMENTATION
 #include "external/cglm/include/cglm/cglm.h"
 #include "external/logger-c/logger/logger.h"
 
@@ -35,10 +29,10 @@
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define CLAMP(v, mn, mx) MIN(MAX(v, mn), mx)
-uint32_t round_up(uint32_t a, uint32_t b) { return (a + b - 1) & ~(b - 1); }
-uint64_t round_up_64(uint64_t a, uint64_t b) { return (a + b - 1) & ~(b - 1); }
-
-#define FLOW_ARRAY_COUNT(array) (sizeof(array) / (sizeof(array[0]) * (sizeof(array) != PTR_SIZE || sizeof(array[0]) <= PTR_SIZE)))
+uint32_t round_up(uint32_t a, uint32_t b);
+uint64_t round_up_64(uint64_t a, uint64_t b);
+#define FLOW_ARRAY_COUNT(array)                                                                                        \
+    (sizeof(array) / (sizeof(array[0]) * (sizeof(array) != PTR_SIZE || sizeof(array[0]) <= PTR_SIZE)))
 
 #define VK_CHECK(x)                                                                                                    \
     do                                                                                                                 \
@@ -52,10 +46,9 @@ uint64_t round_up_64(uint64_t a, uint64_t b) { return (a + b - 1) & ~(b - 1); }
     } while(0)
 
 
-#define ARRAY_COUNT(array) (sizeof(array)) / (sizeof(array[1])) 
+#define ARRAY_COUNT(array) (sizeof(array)) / (sizeof(array[1]))
 
-#define forEach(i, count) \
-    for (uint32_t i = 0; i < (count); i++)
+#define forEach(i, count) for(uint32_t i = 0; i < (count); i++)
 #if defined(_MSC_VER) && !defined(__clang__)
 #if !defined(_DEBUG) && !defined(NDEBUG)
 #define NDEBUG
@@ -121,3 +114,5 @@ typedef SSIZE_T ssize_t;
 #endif
 
 #endif
+
+#endif  // TINYTYPES_H_

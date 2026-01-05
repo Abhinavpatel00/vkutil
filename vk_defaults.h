@@ -1,4 +1,6 @@
-#pragma once
+#ifndef VK_DEFAULTS_H_
+#define VK_DEFAULTS_H_
+
 #include "tinytypes.h"
 #include "external/xxHash/xxhash.h"
 
@@ -8,15 +10,7 @@ typedef uint64_t Hash64;
 uint32_t hash32_bytes(const void* data, size_t size);
 uint64_t hash64_bytes(const void* data, size_t size);
 
-uint32_t hash32_bytes(const void* data, size_t size)
-{
-    return (uint32_t)XXH32(data, size, 0);
-}
 
-uint64_t hash64_bytes(const void* data, size_t size)
-{
-    return (uint64_t)XXH64(data, size, 0);
-}
 #define VK_IMAGE_VIEW_DEFAULT(img, fmt)                                                                                \
     (VkImageViewCreateInfo)                                                                                            \
     {                                                                                                                  \
@@ -37,3 +31,5 @@ uint64_t hash64_bytes(const void* data, size_t size)
             .layerCount     = 1,                                                                                       \
         },                                                                                                             \
     }
+
+#endif // VK_DEFAULTS_H_

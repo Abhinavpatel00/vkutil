@@ -1,3 +1,6 @@
+#ifndef FLOWMEM_H_
+#define FLOWMEM_H_
+
 #include "external/rpmalloc/rpmalloc/rpmalloc.h"
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
@@ -107,3 +110,5 @@ void flow_free_internal(void* ptr, const char* file, int line, const char* sourc
 #define flow_delete(ptr) flow_delete_internal(ptr, __FILE__, __LINE__, __FUNCTION__)
 #endif
 #endif
+
+#endif // FLOWMEM_H_

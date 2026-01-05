@@ -1,3 +1,6 @@
+#ifndef VK_BARRIER_H_
+#define VK_BARRIER_H_
+
 #include "vk_defaults.h"
 /* -----------------------------------------------------------------------------
    Layout → SRC stage
@@ -351,3 +354,4 @@ typedef struct BarrierBatch
     } while(0)
 
 
+#endif // VK_BARRIER_H_

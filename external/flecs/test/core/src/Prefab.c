@@ -6175,7 +6175,7 @@ void Prefab_instantiate_w_non_fragmenting_pair_tag_while_defer_suspended(void) {
     ecs_fini(world);
 }
 
-void Prefab_create_instances_w_override_and_ctor(void) {
+void Prefab_vk_vk_create_instance s_w_override_and_ctor(void) {
     ecs_world_t *world = ecs_mini();
 
     ECS_COMPONENT(world, Position);
@@ -6198,7 +6198,7 @@ void Prefab_create_instances_w_override_and_ctor(void) {
     ecs_fini(world);
 }
 
-void Prefab_create_instances_w_override_and_copy_ctor(void) {
+void Prefab_vk_vk_create_instance s_w_override_and_copy_ctor(void) {
     ecs_world_t *world = ecs_mini();
 
     ECS_COMPONENT(world, Position);
@@ -6221,7 +6221,7 @@ void Prefab_create_instances_w_override_and_copy_ctor(void) {
     ecs_fini(world);
 }
 
-void Prefab_create_instances_w_override_and_on_add(void) {
+void Prefab_vk_vk_create_instance s_w_override_and_on_add(void) {
     ecs_world_t *world = ecs_mini();
 
     ECS_COMPONENT(world, Position);
@@ -6244,7 +6244,7 @@ void Prefab_create_instances_w_override_and_on_add(void) {
     ecs_fini(world);
 }
 
-void Prefab_create_instances_w_override_and_on_set(void) {
+void Prefab_vk_vk_create_instance s_w_override_and_on_set(void) {
     ecs_world_t *world = ecs_mini();
 
     ECS_COMPONENT(world, Position);

@@ -1,92 +1,91 @@
-#include "vk_defaults.h"
+#ifndef VK_PIPELINES_H_
+#define VK_PIPELINES_H_
 
+#include "vk_defaults.h"
 #include "vk_pipeline_layout.h"
 #include "vk_descriptor.h"
-
-// Optional helper for automatic pipeline layout/descriptor set layouts
 #include "vk_shader_reflect.h"
 
-typedef struct
+// ============================================================================
+// Graphics Pipeline Config - minimal, no shader module fields
+// ============================================================================
+
+typedef struct GraphicsPipelineConfig
 {
+    // Vertex input (optional - can be NULL for vertex-pulling)
+    uint32_t                                 vertex_binding_count;
+    const VkVertexInputBindingDescription*   vertex_bindings;
+    uint32_t                                 vertex_attribute_count;
+    const VkVertexInputAttributeDescription* vertex_attributes;
 
-    VkShaderModule vert_shader;
-    VkShaderModule frag_shader;
+    // Rasterization
+    VkCullModeFlags  cull_mode;
+    VkFrontFace      front_face;
+    VkPolygonMode    polygon_mode;
 
-    uint32_t                               vertex_binding_description_count;
-    const VkVertexInputBindingDescription* vertex_binding_descriptions;
-
-    uint32_t                                 vertex_attribute_description_count;
-    const VkVertexInputAttributeDescription* vertex_attribute_descriptions;
-    VkCullModeFlags                          cull_mode;
-    VkFrontFace                              front_face;
-    VkPolygonMode                            polygon_mode;
-    // It lets you use a special “restart” index inside an index buffer to break
-    // one primitive and start a new one without another draw call
-    VkBool32            depth_test_enable;
-    VkBool32            primitive_restart_enable;
+    // Input assembly
     VkPrimitiveTopology topology;
 
+    // Depth/stencil
+    VkBool32 depth_test_enable;
+    VkBool32 depth_write_enable;
+
+    // Attachments (dynamic rendering)
     uint32_t        color_attachment_count;
     const VkFormat* color_formats;
+    VkFormat        depth_format;
+    VkFormat        stencil_format;
 
-    VkFormat               depth_format;
-    VkFormat               stencil_format;
-} GraphicsPipelineState;
+} GraphicsPipelineConfig;
 
-VkPipeline create_graphics_pipeline(VkDevice                               device,
-                                    VkPipelineCache                        pipelinecache,
-                                    DescriptorLayoutCache*                 dcache,
-                                    PipelineLayoutCache*                   plcache,
-                                    const VkDescriptorSetLayoutCreateInfo* set_infos,
-                                    uint32_t                               set_count,
-                                    const VkPushConstantRange*             push_ranges,
-                                    uint32_t                               push_count,
-                                    GraphicsPipelineState*                 state);
+// ============================================================================
+// Pipeline Creation API - simple, file-path based
+// ============================================================================
 
-// --- Reflected pipeline creation (auto descriptor/pipeline layouts) ---
+// Creates a graphics pipeline from SPIR-V file paths.
+// Loads shaders, reflects descriptor/push-constant layout, creates pipeline.
+// Returns pipeline handle; optionally outputs the created pipeline layout.
+VkPipeline create_graphics_pipeline(VkDevice                device,
+                                    VkPipelineCache         cache,
+                                    DescriptorLayoutCache*  desc_cache,
+                                    PipelineLayoutCache*    pipe_cache,
+                                    const char*             vert_shader_path,
+                                    const char*             frag_shader_path,
+                                    GraphicsPipelineConfig* config,
+                                    VkPipelineLayout*       out_layout);
 
-// Builds descriptor set layouts + pipeline layout from SPIR-V (via SPIRV-Reflect)
-// and creates a graphics pipeline. Shader modules are created and destroyed internally.
-VkPipeline create_graphics_pipeline_reflected(VkDevice                device,
-                                              VkPipelineCache         pipelinecache,
-                                              DescriptorLayoutCache*  dcache,
-                                              PipelineLayoutCache*    plcache,
-                                              const void*             vert_spirv,
-                                              size_t                  vert_spirv_size,
-                                              const void*             frag_spirv,
-                                              size_t                  frag_spirv_size,
-                                              const char*             vert_entry,
-                                              const char*             frag_entry,
-                                              GraphicsPipelineState*  state,
-                                              VkPipelineLayout*       out_pipeline_layout);
+// Creates a compute pipeline from a SPIR-V file path.
+// Loads shader, reflects descriptor/push-constant layout, creates pipeline.
+// Returns pipeline handle; optionally outputs the created pipeline layout.
+VkPipeline create_compute_pipeline(VkDevice               device,
+                                   VkPipelineCache        cache,
+                                   DescriptorLayoutCache* desc_cache,
+                                   PipelineLayoutCache*   pipe_cache,
+                                   const char*            comp_shader_path,
+                                   VkPipelineLayout*      out_layout);
 
-// Builds descriptor set layouts + pipeline layout from SPIR-V (via SPIRV-Reflect)
-// and creates a compute pipeline. Shader module is created and destroyed internally.
-VkPipeline create_compute_pipeline_reflected(VkDevice               device,
-                                             VkPipelineCache        pipelinecache,
-                                             DescriptorLayoutCache* dcache,
-                                             PipelineLayoutCache*   plcache,
-                                             const void*            comp_spirv,
-                                             size_t                 comp_spirv_size,
-                                             const char*            comp_entry,
-                                             VkPipelineLayout*      out_pipeline_layout);
+// ============================================================================
+// Default config helper
+// ============================================================================
 
-// Same as above, but loads SPIR-V from file paths.
-VkPipeline create_graphics_pipeline_reflected_from_file(VkDevice               device,
-                                                        VkPipelineCache        pipelinecache,
-                                                        DescriptorLayoutCache* dcache,
-                                                        PipelineLayoutCache*   plcache,
-                                                        const char*            vert_spirv_path,
-                                                        const char*            frag_spirv_path,
-                                                        const char*            vert_entry,
-                                                        const char*            frag_entry,
-                                                        GraphicsPipelineState* state,
-                                                        VkPipelineLayout*      out_pipeline_layout);
+static inline GraphicsPipelineConfig graphics_pipeline_config_default(void)
+{
+    return (GraphicsPipelineConfig){
+        .vertex_binding_count   = 0,
+        .vertex_bindings        = NULL,
+        .vertex_attribute_count = 0,
+        .vertex_attributes      = NULL,
+        .cull_mode              = VK_CULL_MODE_BACK_BIT,
+        .front_face             = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        .polygon_mode           = VK_POLYGON_MODE_FILL,
+        .topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .depth_test_enable      = VK_FALSE,
+        .depth_write_enable     = VK_FALSE,
+        .color_attachment_count = 0,
+        .color_formats          = NULL,
+        .depth_format           = VK_FORMAT_UNDEFINED,
+        .stencil_format         = VK_FORMAT_UNDEFINED,
+    };
+}
 
-VkPipeline create_compute_pipeline_reflected_from_file(VkDevice               device,
-                                                       VkPipelineCache        pipelinecache,
-                                                       DescriptorLayoutCache* dcache,
-                                                       PipelineLayoutCache*   plcache,
-                                                       const char*            comp_spirv_path,
-                                                       const char*            comp_entry,
-                                                       VkPipelineLayout*      out_pipeline_layout);
+#endif // VK_PIPELINES_H_
