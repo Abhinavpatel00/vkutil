@@ -79,21 +79,29 @@ VkPipeline create_graphics_pipeline(VkDevice                device,
                                     VkPipelineLayout*       out_layout)
 {
     // Load SPIR-V
-    void*  vert_code = NULL; size_t vert_size = 0;
-    void*  frag_code = NULL; size_t frag_size = 0;
+    void*  vert_code = NULL;
+    size_t vert_size = 0;
+    void*  frag_code = NULL;
+    size_t frag_size = 0;
 
-    if(!read_file(vert_path, &vert_code, &vert_size)) return VK_NULL_HANDLE;
-    if(!read_file(frag_path, &frag_code, &frag_size)) { free(vert_code); return VK_NULL_HANDLE; }
+    if(!read_file(vert_path, &vert_code, &vert_size))
+        return VK_NULL_HANDLE;
+    if(!read_file(frag_path, &frag_code, &frag_size))
+    {
+        free(vert_code);
+        return VK_NULL_HANDLE;
+    }
 
     // Create shader modules
     VkShaderModule vert_mod = create_shader_module(device, vert_code, vert_size);
     VkShaderModule frag_mod = create_shader_module(device, frag_code, frag_size);
 
     // Reflect and build pipeline layout
-    const void*  spirvs[2] = {vert_code, frag_code};
-    const size_t sizes[2]  = {vert_size, frag_size};
-    VkPipelineLayout layout = shader_reflect_build_pipeline_layout(device, desc_cache, pipe_cache, spirvs, sizes, 2);
-    if(out_layout) *out_layout = layout;
+    const void*      spirvs[2] = {vert_code, frag_code};
+    const size_t     sizes[2]  = {vert_size, frag_size};
+    VkPipelineLayout layout    = shader_reflect_build_pipeline_layout(device, desc_cache, pipe_cache, spirvs, sizes, 2);
+    if(out_layout)
+        *out_layout = layout;
 
     // Shader stages
     VkPipelineShaderStageCreateInfo stages[2] = {
@@ -162,8 +170,7 @@ VkPipeline create_graphics_pipeline(VkDevice                device,
     for(uint32_t i = 0; i < cfg->color_attachment_count && i < 8; i++)
     {
         blend_atts[i] = (VkPipelineColorBlendAttachmentState){
-            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                              VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
         };
     }
 
@@ -174,11 +181,11 @@ VkPipeline create_graphics_pipeline(VkDevice                device,
     };
 
     // Dynamic state
-    VkDynamicState dyn_states[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-    VkPipelineDynamicStateCreateInfo dynamic = {
-        .sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-        .dynamicStateCount = 2,
-        .pDynamicStates    = dyn_states,
+    VkDynamicState                   dyn_states[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo dynamic      = {
+             .sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+             .dynamicStateCount = 2,
+             .pDynamicStates    = dyn_states,
     };
 
     // Dynamic rendering
@@ -218,6 +225,25 @@ VkPipeline create_graphics_pipeline(VkDevice                device,
 
     return pipeline;
 }
+void vk_cmd_set_viewport_scissor(VkCommandBuffer cmd, VkExtent2D extent)
+{
+    VkViewport vp = {
+        .x        = 0.0f,
+        .y        = 0.0f,
+        .width    = (float)extent.width,
+        .height   = (float)extent.height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+
+    VkRect2D sc = {
+        .offset = {0, 0},
+        .extent = extent,
+    };
+
+    vkCmdSetViewport(cmd, 0, 1, &vp);
+    vkCmdSetScissor(cmd, 0, 1, &sc);
+}
 
 // ============================================================================
 // Compute Pipeline
@@ -233,16 +259,18 @@ VkPipeline create_compute_pipeline(VkDevice               device,
     // Load SPIR-V
     void*  comp_code = NULL;
     size_t comp_size = 0;
-    if(!read_file(comp_path, &comp_code, &comp_size)) return VK_NULL_HANDLE;
+    if(!read_file(comp_path, &comp_code, &comp_size))
+        return VK_NULL_HANDLE;
 
     // Create shader module
     VkShaderModule comp_mod = create_shader_module(device, comp_code, comp_size);
 
     // Reflect and build pipeline layout
-    const void*  spirvs[1] = {comp_code};
-    const size_t sizes[1]  = {comp_size};
-    VkPipelineLayout layout = shader_reflect_build_pipeline_layout(device, desc_cache, pipe_cache, spirvs, sizes, 1);
-    if(out_layout) *out_layout = layout;
+    const void*      spirvs[1] = {comp_code};
+    const size_t     sizes[1]  = {comp_size};
+    VkPipelineLayout layout    = shader_reflect_build_pipeline_layout(device, desc_cache, pipe_cache, spirvs, sizes, 1);
+    if(out_layout)
+        *out_layout = layout;
 
     // Create pipeline
     VkPipelineShaderStageCreateInfo stage = {

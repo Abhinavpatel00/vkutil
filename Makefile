@@ -3,7 +3,7 @@
 TARGET := test
 
 # List your C and C++ source files here (relative or absolute paths)
-SRC_C   := test.c helpers.c vk_startup.c vk_sync.c vk_queue.c vk_descriptor.c vk_pipeline_layout.c vk_pipelines.c vk_shader_reflect.c vk_swapchain.c volk.c
+SRC_C   := test.c vk_cmd.c helpers.c vk_startup.c vk_sync.c vk_queue.c vk_descriptor.c vk_pipeline_layout.c vk_pipelines.c vk_shader_reflect.c vk_swapchain.c volk.c
 SRC_CPP := 
 
 # Compiler flags

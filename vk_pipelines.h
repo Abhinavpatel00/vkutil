@@ -19,9 +19,9 @@ typedef struct GraphicsPipelineConfig
     const VkVertexInputAttributeDescription* vertex_attributes;
 
     // Rasterization
-    VkCullModeFlags  cull_mode;
-    VkFrontFace      front_face;
-    VkPolygonMode    polygon_mode;
+    VkCullModeFlags cull_mode;
+    VkFrontFace     front_face;
+    VkPolygonMode   polygon_mode;
 
     // Input assembly
     VkPrimitiveTopology topology;
@@ -53,6 +53,9 @@ VkPipeline create_graphics_pipeline(VkDevice                device,
                                     const char*             frag_shader_path,
                                     GraphicsPipelineConfig* config,
                                     VkPipelineLayout*       out_layout);
+
+
+void vk_cmd_set_viewport_scissor(VkCommandBuffer cmd, VkExtent2D extent);
 
 // Creates a compute pipeline from a SPIR-V file path.
 // Loads shader, reflects descriptor/push-constant layout, creates pipeline.
@@ -88,4 +91,4 @@ static inline GraphicsPipelineConfig graphics_pipeline_config_default(void)
     };
 }
 
-#endif // VK_PIPELINES_H_
+#endif  // VK_PIPELINES_H_

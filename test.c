@@ -7,7 +7,8 @@
 #include <GLFW/glfw3.h>
 #include <assert.h>
 #include <stdbool.h>
-#include <vulkan/vulkan_core.h>
+#include "vk_cmd.h"
+#include "vk_pipelines.h"
 typedef struct
 {
     VkSemaphore image_available_semaphore;
@@ -49,8 +50,8 @@ int main()
           .instance_layer_count        = 0,
           .instance_extension_count    = glfw_ext_count,
           .device_extension_count      = 1,
-          .enable_gpu_based_validation = false,
-          .enable_validation           = 1,
+          .enable_gpu_based_validation = true,
+          .enable_validation           = true,
 
           .validation_severity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
                                | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
@@ -105,28 +106,31 @@ int main()
     FrameSync       frame_sync[MAX_FRAME_IN_FLIGHT];
     VkCommandPool   cmd_pools[MAX_FRAME_IN_FLIGHT];
     VkCommandBuffer cmd_buffers[MAX_FRAME_IN_FLIGHT];
-
-    vk_create_semaphores(device, MAX_FRAME_IN_FLIGHT, &frame_sync->image_available_semaphore);
-    vk_create_fences(device, MAX_FRAME_IN_FLIGHT, true, &frame_sync->in_flight_fence);
     forEach(i, MAX_FRAME_IN_FLIGHT)
     {
-        VkCommandPoolCreateInfo pool_info = {
-            .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-            .queueFamilyIndex = qf.graphics_family,
-        };
-
-        VK_CHECK(vkCreateCommandPool(device, &pool_info, NULL, &cmd_pools[i]));
-    }
+        vk_create_semaphore(device, &frame_sync[i].image_available_semaphore);
+        vk_create_fence(device, true, &frame_sync[i].in_flight_fence);
+    };
+    vk_cmd_create_many_pools(device, qf.graphics_family, true, false, MAX_FRAME_IN_FLIGHT, cmd_pools);
     forEach(i, MAX_FRAME_IN_FLIGHT)
     {
-        VkCommandBufferAllocateInfo alloc = {.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                                             .commandPool        = cmd_pools[i],
-                                             .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-                                             .commandBufferCount = 1};
-
-        VK_CHECK(vkAllocateCommandBuffers(device, &alloc, &cmd_buffers[i]));
+        vk_cmd_alloc(device, cmd_pools[i], true, &cmd_buffers[i]);
     }
+    DescriptorLayoutCache desc_cache = {0};
+    PipelineLayoutCache   pipe_cache = {0};
 
+    descriptor_layout_cache_init(&desc_cache);
+    pipeline_layout_cache_init(&pipe_cache);
+
+    GraphicsPipelineConfig cfg = graphics_pipeline_config_default();
+    cfg.color_attachment_count = 1;
+    cfg.color_formats          = &swap.format;
+    cfg.depth_format           = VK_FORMAT_UNDEFINED;
+
+    VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
+
+    VkPipeline pipeline = create_graphics_pipeline(device, VK_NULL_HANDLE, &desc_cache, &pipe_cache, "compiledshaders/tri.vert.spv",
+                                                   "compiledshaders/tri.frag.spv", &cfg, &pipeline_layout);
 
     while(!glfwWindowShouldClose(window))
     {
@@ -161,41 +165,69 @@ int main()
         // -------------------------------------------------------------
         VkCommandBuffer cmd = cmd_buffers[current_frame];
 
-        VkCommandBufferBeginInfo begin = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-
-        vkBeginCommandBuffer(cmd, &begin);
+        vk_cmd_begin(cmd, true);
 
 
-        // Transition: UNDEFINED -> TRANSFER_DST
-        IMAGE_BARRIER_IMMEDIATE(cmd, swap.images[image_index], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        VkClearColorValue color = {.float32 = {0.1f, 0.2f, 0.4f, 1.0f}};
+        /* transition for rendering target */
+        IMAGE_BARRIER_IMMEDIATE(cmd, swap.images[image_index], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-        VkImageSubresourceRange range = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
+        VkRenderingAttachmentInfo color_attach = {.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                                                  .imageView   = swap.image_views[image_index],
+                                                  .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                                  .loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                                  .storeOp     = VK_ATTACHMENT_STORE_OP_STORE,
+                                                  .clearValue  = {.color = {.float32 = {0.05f, 0.05f, 0.08f, 1.0f}}}};
 
-        vkCmdClearColorImage(cmd, swap.images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &color, 1, &range);
-
-        // Transition: TRANSFER_DST -> PRESENT
-
-        IMAGE_BARRIER_IMMEDIATE(cmd, swap.images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-        vkEndCommandBuffer(cmd);
-
-        VkSemaphore          wait_semaphores[]   = {frame_sync[current_frame].image_available_semaphore};
-        VkPipelineStageFlags wait_stage          = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        VkSemaphore          signal_semaphores[] = {swap.render_finished[image_index]};
-
-        VkSubmitInfo submit = {
-            .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .waitSemaphoreCount   = 1,
-            .pWaitSemaphores      = wait_semaphores,
-            .pWaitDstStageMask    = &wait_stage,
-            .commandBufferCount   = 1,
-            .pCommandBuffers      = &cmd_buffers[current_frame],
-            .signalSemaphoreCount = 1,
-            .pSignalSemaphores    = signal_semaphores,
+        VkRenderingInfo rendering = {
+            .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
+            .renderArea           = {.offset = {0, 0}, .extent = {swap.extent.width, swap.extent.height}},
+            .layerCount           = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments    = &color_attach,
         };
 
-        vkQueueSubmit(qf.graphics_queue, 1, &submit, frame_sync[current_frame].in_flight_fence);
+        vkCmdBeginRendering(cmd, &rendering);
+        vk_cmd_set_viewport_scissor(cmd, swap.extent);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+        /* no vertex buffers, use gl_VertexIndex */
+        vkCmdDraw(cmd, 3, 1, 0, 0);
+
+        vkCmdEndRendering(cmd);
+
+        /* transition for presentation */
+        IMAGE_BARRIER_IMMEDIATE(cmd, swap.images[image_index], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+
+        vk_cmd_end(cmd);
+        VkSemaphoreSubmitInfo wait_info   = {.sType     = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                                             .semaphore = frame_sync[current_frame].image_available_semaphore,
+                                             .value     = 0,
+                                             .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT};
+        VkSemaphoreSubmitInfo signal_info = {
+            .sType     = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+            .semaphore = swap.render_finished[image_index],
+            .value     = 0,
+            .stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+        };
+
+        VkCommandBufferSubmitInfo cmdInfo = {.sType         = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO_KHR,
+                                             .pNext         = NULL,
+                                             .commandBuffer = cmd_buffers[current_frame],
+                                             .deviceMask    = 0};
+
+        VkSubmitInfo2 submit = {.sType                    = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+                                .waitSemaphoreInfoCount   = 1,
+                                .pWaitSemaphoreInfos      = &wait_info,
+                                .commandBufferInfoCount   = 1,
+                                .pCommandBufferInfos      = &cmdInfo,
+                                .signalSemaphoreInfoCount = 1,
+                                .pSignalSemaphoreInfos    = &signal_info
+
+
+        };
+
+        vkQueueSubmit2(qf.graphics_queue, 1, &submit, frame_sync[current_frame].in_flight_fence);
         // Present
         if(!vk_swapchain_present(qf.present_queue, &swap, &swap.render_finished[swap.current_image], 1, &recreate))
         {
@@ -205,6 +237,8 @@ int main()
                 continue;
             }
         }
+
+        current_frame = (current_frame + 1) % MAX_FRAME_IN_FLIGHT;
     }
 
     vkDeviceWaitIdle(device);
@@ -212,6 +246,11 @@ int main()
     {
         vkDestroyCommandPool(device, cmd_pools[i], NULL);
     }
+    vkDestroyPipeline(device, pipeline, NULL);
+    vkDestroyPipelineLayout(device, pipeline_layout, NULL);
+
+//    pipeline_layout_cache_destroy(device, &pipe_cache);
+    descriptor_layout_cache_destroy(device, &desc_cache);
 
     vk_swapchain_destroy(device, &swap);
     vkDestroySurfaceKHR(ctx.instance, surface, NULL);
