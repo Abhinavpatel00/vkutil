@@ -79,7 +79,7 @@ static inline GraphicsPipelineConfig graphics_pipeline_config_default(void)
         .vertex_attribute_count = 0,
         .vertex_attributes      = NULL,
         .cull_mode              = VK_CULL_MODE_BACK_BIT,
-        .front_face             = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        .front_face             = VK_FRONT_FACE_CLOCKWISE,
         .polygon_mode           = VK_POLYGON_MODE_FILL,
         .topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
         .depth_test_enable      = VK_FALSE,

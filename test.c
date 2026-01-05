@@ -7,6 +7,8 @@
 #include <GLFW/glfw3.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <vulkan/vulkan_core.h>
 #include "vk_cmd.h"
 #include "vk_pipelines.h"
 typedef struct
@@ -17,6 +19,8 @@ typedef struct
 
 int main()
 {
+
+
     volkInitialize();
     if(!is_instance_extension_supported("VK_KHR_wayland_surface"))
     {
@@ -66,8 +70,6 @@ int main()
 
     volkLoadInstanceOnly(ctx.instance);
     setup_debug_messenger(&ctx, &desc);
-
-
     VkSurfaceKHR surface;
 
     VK_CHECK(glfwCreateWindowSurface(ctx.instance, window, NULL, &surface));
@@ -132,6 +134,9 @@ int main()
     VkPipeline pipeline = create_graphics_pipeline(device, VK_NULL_HANDLE, &desc_cache, &pipe_cache, "compiledshaders/tri.vert.spv",
                                                    "compiledshaders/tri.frag.spv", &cfg, &pipeline_layout);
 
+    VkImageLayout swap_image_layouts[MAX_SWAPCHAIN_IMAGES] = {0};
+
+
     while(!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
@@ -156,6 +161,7 @@ int main()
             if(recreate)
             {
                 vk_swapchain_recreate(device, gpu, &swap, w, h);
+
                 continue;
             }
         }
@@ -227,7 +233,7 @@ int main()
 
         };
 
-        vkQueueSubmit2(qf.graphics_queue, 1, &submit, frame_sync[current_frame].in_flight_fence);
+        VK_CHECK(vkQueueSubmit2(qf.graphics_queue, 1, &submit, frame_sync[current_frame].in_flight_fence));
         // Present
         if(!vk_swapchain_present(qf.present_queue, &swap, &swap.render_finished[swap.current_image], 1, &recreate))
         {
@@ -249,7 +255,7 @@ int main()
     vkDestroyPipeline(device, pipeline, NULL);
     vkDestroyPipelineLayout(device, pipeline_layout, NULL);
 
-//    pipeline_layout_cache_destroy(device, &pipe_cache);
+    //    pipeline_layout_cache_destroy(device, &pipe_cache);
     descriptor_layout_cache_destroy(device, &desc_cache);
 
     vk_swapchain_destroy(device, &swap);
