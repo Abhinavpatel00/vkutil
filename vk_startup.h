@@ -40,9 +40,10 @@ typedef struct renderer_context
     uint32_t                 debug_utils_enabled : 1;
 } renderer_context;
 
+
 void vk_create_instance(renderer_context* ctx, const renderer_context_desc* desc);
 
-
+void             setup_debug_messenger(renderer_context* ctx, const renderer_context_desc* desc);
 VkPhysicalDevice pick_physical_device(VkInstance instance, VkSurfaceKHR surface, renderer_context_desc* desc);
 
 void create_device(VkPhysicalDevice       physical,

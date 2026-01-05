@@ -110,6 +110,55 @@ bool device_supports_extensions(VkPhysicalDevice gpu, const char** req, uint32_t
     return true;
 }
 
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT      severity,
+                                                     VkDebugUtilsMessageTypeFlagsEXT             type,
+                                                     const VkDebugUtilsMessengerCallbackDataEXT* data,
+                                                     void*                                       user_data)
+{
+    (void)type;
+    (void)user_data;
+
+    const char* tag = "MSG";
+
+    if(severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+        tag = "ERROR";
+    else if(severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+        tag = "WARN";
+    else if(severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
+        tag = "INFO";
+    else if(severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT)
+        tag = "VERBOSE";
+
+    fprintf(stderr, "[VULKAN %s] %s\n", tag, data->pMessage);
+
+    return VK_FALSE;
+}
+
+
+void setup_debug_messenger(renderer_context* ctx, const renderer_context_desc* desc)
+{
+    PFN_vkCreateDebugUtilsMessengerEXT pfn;
+    VkDebugUtilsMessengerCreateInfoEXT ci;
+
+    if(!desc->enable_validation)
+        return;
+
+    memset(&ci, 0, sizeof(ci));
+    ci.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+
+    /* use what YOU configured */
+    ci.messageSeverity = desc->validation_severity;
+    ci.messageType     = desc->validation_types;
+
+    ci.pfnUserCallback = debug_callback;
+
+    pfn = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(ctx->instance, "vkCreateDebugUtilsMessengerEXT");
+
+    if(pfn)
+    {
+        VK_CHECK(pfn(ctx->instance, &ci, NULL, &ctx->debug_utils));
+    }
+}
 void vk_create_instance(renderer_context* ctx, const renderer_context_desc* desc)
 {
     memset(ctx, 0, sizeof(*ctx));

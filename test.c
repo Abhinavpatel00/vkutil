@@ -3,9 +3,11 @@
 #include "vk_swapchain.h"
 #include "vk_queue.h"
 #include "vk_sync.h"
+#include "vk_barrier.h"
 #include <GLFW/glfw3.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <vulkan/vulkan_core.h>
 typedef struct
 {
     VkSemaphore image_available_semaphore;
@@ -28,18 +30,8 @@ int main()
     assert(glfwInit());
     const char* layers[2];
     uint32_t    layer_count = 0;
-
-#if ENABLE_VALIDATION
-    layers[layer_count++] = "VK_LAYER_KHRONOS_validation";
-#endif
-
-#if defined(ENABLE_MESA_OVERLAY_LAYER)
-    layers[layer_count++] = "VK_LAYER_MESA_overlay";
-#endif
-
-    const char* dev_exts[] = {
+    const char* dev_exts[]  = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-
     };
     u32          glfw_ext_count = 0;
     const char** glfw_exts      = glfwGetRequiredInstanceExtensions(&glfw_ext_count);
@@ -54,12 +46,16 @@ int main()
           .instance_extensions = glfw_exts,
           .device_extensions   = dev_exts,
 
-          .instance_layer_count     = 0,
-          .instance_extension_count = glfw_ext_count,
-          .device_extension_count   = 1,
-
+          .instance_layer_count        = 0,
+          .instance_extension_count    = glfw_ext_count,
+          .device_extension_count      = 1,
           .enable_gpu_based_validation = false,
+          .enable_validation           = 1,
 
+          .validation_severity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
+                               | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+          .validation_types = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+                            | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
           .use_custom_features = false  // IMPORTANT
     };
 
@@ -68,6 +64,9 @@ int main()
     vk_create_instance(&ctx, &desc);
 
     volkLoadInstanceOnly(ctx.instance);
+    setup_debug_messenger(&ctx, &desc);
+
+
     VkSurfaceKHR surface;
 
     VK_CHECK(glfwCreateWindowSurface(ctx.instance, window, NULL, &surface));
@@ -138,7 +137,6 @@ int main()
 
         if(w == 0 || h == 0)
         {
-            // Window minimized. Don't fight the universe.
             continue;
         }
 
@@ -169,24 +167,7 @@ int main()
 
 
         // Transition: UNDEFINED -> TRANSFER_DST
-        VkImageMemoryBarrier to_transfer = {.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-                                            .srcAccessMask       = 0,
-                                            .dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
-                                            .oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED,
-                                            .newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                                            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                                            .image               = swap.images[image_index],
-                                            .subresourceRange    = {.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                    .baseMipLevel   = 0,
-                                                                    .levelCount     = 1,
-                                                                    .baseArrayLayer = 0,
-                                                                    .layerCount     = 1}};
-
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0,
-                             NULL, 1, &to_transfer);
-
-        // Actual clear
+        IMAGE_BARRIER_IMMEDIATE(cmd, swap.images[image_index], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         VkClearColorValue color = {.float32 = {0.1f, 0.2f, 0.4f, 1.0f}};
 
         VkImageSubresourceRange range = {
@@ -195,19 +176,8 @@ int main()
         vkCmdClearColorImage(cmd, swap.images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &color, 1, &range);
 
         // Transition: TRANSFER_DST -> PRESENT
-        VkImageMemoryBarrier to_present = {.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-                                           .srcAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
-                                           .dstAccessMask       = 0,
-                                           .oldLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                           .newLayout           = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                                           .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                                           .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                                           .image               = swap.images[image_index],
-                                           .subresourceRange    = range};
 
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0,
-                             NULL, 1, &to_present);
-
+        IMAGE_BARRIER_IMMEDIATE(cmd, swap.images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
         vkEndCommandBuffer(cmd);
 
         VkSemaphore          wait_semaphores[]   = {frame_sync[current_frame].image_available_semaphore};
