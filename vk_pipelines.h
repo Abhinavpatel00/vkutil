@@ -13,11 +13,10 @@
 typedef struct GraphicsPipelineConfig
 {
     // Vertex input (optional - can be NULL for vertex-pulling)
-    uint32_t                                 vertex_binding_count;
-    const VkVertexInputBindingDescription*   vertex_bindings;
-    uint32_t                                 vertex_attribute_count;
-    const VkVertexInputAttributeDescription* vertex_attributes;
-
+    uint32_t                           vertex_binding_count;
+    uint32_t                           vertex_attribute_count;
+    VkVertexInputBindingDescription   vertex_bindings[8];
+    VkVertexInputAttributeDescription vertex_attributes[16];
     // Rasterization
     VkCullModeFlags cull_mode;
     VkFrontFace     front_face;
@@ -74,10 +73,6 @@ VkPipeline create_compute_pipeline(VkDevice               device,
 static inline GraphicsPipelineConfig graphics_pipeline_config_default(void)
 {
     return (GraphicsPipelineConfig){
-        .vertex_binding_count   = 0,
-        .vertex_bindings        = NULL,
-        .vertex_attribute_count = 0,
-        .vertex_attributes      = NULL,
         .cull_mode              = VK_CULL_MODE_BACK_BIT,
         .front_face             = VK_FRONT_FACE_CLOCKWISE,
         .polygon_mode           = VK_POLYGON_MODE_FILL,

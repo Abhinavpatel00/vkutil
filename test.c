@@ -1,3 +1,4 @@
+#include "external/cglm/include/cglm/types.h"
 #include "tinytypes.h"
 #include "vk_startup.h"
 #include "vk_swapchain.h"
@@ -11,16 +12,27 @@
 #include <vulkan/vulkan_core.h>
 #include "vk_cmd.h"
 #include "vk_pipelines.h"
+#include "vk_resources.h"
 typedef struct
 {
     VkSemaphore image_available_semaphore;
     VkFence     in_flight_fence;
 } FrameSync;
 
+typedef struct Vertex
+{
+    float pos[2];
+    float col[3];
+} Vertex;
+
+
+static const Vertex TRIANGLE_VERTS[] = {
+    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+};
 int main()
 {
-
-
     volkInitialize();
     if(!is_instance_extension_supported("VK_KHR_wayland_surface"))
     {
@@ -85,7 +97,15 @@ int main()
     create_device(gpu, surface, &desc, qf, &device);
     volkLoadDevice(device);
     init_device_queues(device, &qf);
+    ResourceAllocator allocator = {0};
 
+    VmaAllocatorCreateInfo vmaInfo = {
+        .physicalDevice = gpu,
+        .device         = device,
+        .instance       = ctx.instance,
+    };
+
+    res_init(ctx.instance, device, gpu, &allocator, vmaInfo);
     FlowSwapchain swap = {0};
 
     int fb_w = 0, fb_h = 0;
@@ -128,14 +148,48 @@ int main()
     cfg.color_attachment_count = 1;
     cfg.color_formats          = &swap.format;
     cfg.depth_format           = VK_FORMAT_UNDEFINED;
+    cfg.vertex_binding_count   = 1;
+    cfg.vertex_bindings[0] =
+        (VkVertexInputBindingDescription){.binding = 0, .stride = sizeof(Vertex), .inputRate = VK_VERTEX_INPUT_RATE_VERTEX};
+
+    cfg.vertex_attribute_count = 2;
+    cfg.vertex_attributes[0]   = (VkVertexInputAttributeDescription){
+          .location = 0, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(Vertex, pos)};
+    cfg.vertex_attributes[1] = (VkVertexInputAttributeDescription){
+        .location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, col)};
 
     VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
 
     VkPipeline pipeline = create_graphics_pipeline(device, VK_NULL_HANDLE, &desc_cache, &pipe_cache, "compiledshaders/tri.vert.spv",
                                                    "compiledshaders/tri.frag.spv", &cfg, &pipeline_layout);
 
-    VkImageLayout swap_image_layouts[MAX_SWAPCHAIN_IMAGES] = {0};
+    Buffer vertex_buffer;
+    res_create_buffer(&allocator, device, sizeof(TRIANGLE_VERTS), VK_BUFFER_USAGE_2_VERTEX_BUFFER_BIT,
+                      VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0, 0, &vertex_buffer);
 
+
+    Buffer staging;
+
+    res_create_buffer(&allocator, device, sizeof(TRIANGLE_VERTS),
+                      VK_BUFFER_USAGE_2_TRANSFER_SRC_BIT,  // source in copy
+                      VMA_MEMORY_USAGE_AUTO,               // CPU visible
+                      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, 0, &staging);
+    memcpy(staging.mapping, TRIANGLE_VERTS, sizeof(TRIANGLE_VERTS));
+    VkCommandBuffer upload = cmd_buffers[0];
+    vk_cmd_begin(upload, true);
+
+    VkBufferCopy copy = {.size = sizeof(TRIANGLE_VERTS)};
+
+    vkCmdCopyBuffer(upload, staging.buffer, vertex_buffer.buffer, 1, &copy);
+
+    vk_cmd_end(upload);
+
+    vkQueueSubmit(qf.graphics_queue, 1,
+                  &(VkSubmitInfo){.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO, .commandBufferCount = 1, .pCommandBuffers = &upload},
+                  VK_NULL_HANDLE);
+
+    vkQueueWaitIdle(qf.graphics_queue);
+    res_destroy_buffer(&allocator, &staging);
 
     while(!glfwWindowShouldClose(window))
     {
@@ -170,10 +224,7 @@ int main()
         // RENDER HERE using swap.images[image_index] via your FB/pipeline
         // -------------------------------------------------------------
         VkCommandBuffer cmd = cmd_buffers[current_frame];
-
         vk_cmd_begin(cmd, true);
-
-
         /* transition for rendering target */
         IMAGE_BARRIER_IMMEDIATE(cmd, swap.images[image_index], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
@@ -196,7 +247,9 @@ int main()
         vk_cmd_set_viewport_scissor(cmd, swap.extent);
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-        /* no vertex buffers, use gl_VertexIndex */
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(cmd, 0, 1, &vertex_buffer.buffer, offsets);
+
         vkCmdDraw(cmd, 3, 1, 0, 0);
 
         vkCmdEndRendering(cmd);
@@ -268,3 +321,5 @@ int main()
 
     return 0;
 }
+
+// https://raw.githubusercontent.com/KhronosGroup/GLSL/master/extensions/khr/GL_KHR_vulkan_glsl.txt
