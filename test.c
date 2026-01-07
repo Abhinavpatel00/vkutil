@@ -149,14 +149,6 @@ int main()
     cfg.color_formats          = &swap.format;
     cfg.depth_format           = VK_FORMAT_UNDEFINED;
     cfg.vertex_binding_count   = 1;
-    cfg.vertex_bindings[0] =
-        (VkVertexInputBindingDescription){.binding = 0, .stride = sizeof(Vertex), .inputRate = VK_VERTEX_INPUT_RATE_VERTEX};
-
-    cfg.vertex_attribute_count = 2;
-    cfg.vertex_attributes[0]   = (VkVertexInputAttributeDescription){
-          .location = 0, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(Vertex, pos)};
-    cfg.vertex_attributes[1] = (VkVertexInputAttributeDescription){
-        .location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, col)};
 
     VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
 

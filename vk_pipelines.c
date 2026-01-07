@@ -119,7 +119,48 @@ VkPipeline create_graphics_pipeline(VkDevice                device,
         },
     };
 
+    ShaderReflection vert_reflect;
+    shader_reflect_create(&vert_reflect, vert_code, vert_size);
+
+    cfg->vertex_attribute_count = shader_reflect_get_vertex_attributes(&vert_reflect, cfg->vertex_attributes, 16,
+                                                                       0  // binding index
+    );
+
+
+    uint32_t stride = 0;
+
+    for(uint32_t i = 0; i < cfg->vertex_attribute_count; i++)
+    {
+        uint32_t end = cfg->vertex_attributes[i].offset;
+
+        switch(cfg->vertex_attributes[i].format)
+        {
+            case VK_FORMAT_R32_SFLOAT:
+                end += 4;
+                break;
+            case VK_FORMAT_R32G32_SFLOAT:
+                end += 8;
+                break;
+            case VK_FORMAT_R32G32B32_SFLOAT:
+                end += 12;
+                break;
+            case VK_FORMAT_R32G32B32A32_SFLOAT:
+                end += 16;
+                break;
+            default:
+                end += 4;
+                break;
+        }
+
+        if(end > stride)
+            stride = end;
+    }
+
+
     // Vertex input
+    cfg->vertex_binding_count = 1;
+    cfg->vertex_bindings[0] =
+        (VkVertexInputBindingDescription){.binding = 0, .stride = stride, .inputRate = VK_VERTEX_INPUT_RATE_VERTEX};
     VkPipelineVertexInputStateCreateInfo vertex_input = {
         .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .vertexBindingDescriptionCount   = cfg->vertex_binding_count,
