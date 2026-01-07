@@ -75,3 +75,48 @@ while (!should_close()) {
     renderer_submit_commands(&renderer, frame, cmd)
     renderer_end_frame(&renderer, frame)
 }
+
+
+
+
+vkCmdBindPipeline(...);
+
+bind_frame_set();
+bind_material_set();
+bind_object_set();
+
+vkCmdDraw(...);
+
+
+
+set 0 -> bound from frame UBO system
+set 1 -> bound from material system
+set 2 -> bound from object system
+
+
+
+global pool (materials, textures)
+per-frame pool (frame + object descriptors)
+
+
+DescriptorAllocator global_alloc   (persistent)
+DescriptorAllocator frame_alloc[FRAME_COUNT]  (reset every frame)
+
+
+descriptor_allocator_init(&global_alloc, device);
+for each frame:
+    descriptor_allocator_init(&frame_alloc[i], device);
+Use
+Copy code
+set0 = allocate from global_alloc     (camera)
+set1 = allocate from global_alloc     (material)
+set2 = allocate from frame_alloc[cur] (per-object, dynamic)
+Per-frame reset
+scss
+Copy code
+descriptor_allocator_reset(&frame_alloc[cur]);
+
+
+set0 (globals)   → persistent
+set1 (materials) → persistent
+set2 (per-draw)  → per_frame[frame]

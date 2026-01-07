@@ -1,25 +1,29 @@
 
 #include "vk_descriptor.h"
 
-static VkDescriptorPool create_pool(VkDevice device)
+static VkDescriptorPool create_pool(VkDevice device, float scale)
 {
     VkDescriptorPoolSize sizes[] = {
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 64}, {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 64},
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 64}, {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 32},
-        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 32},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,        (uint32_t)(64  * scale)},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,(uint32_t)(64  * scale)},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,        (uint32_t)(64  * scale)},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,(uint32_t)(32  * scale)},
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,         (uint32_t)(32  * scale)},
     };
 
-    VkDescriptorPoolCreateInfo info = {.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-                                       .flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-                                       .maxSets       = 128,
-                                       .poolSizeCount = (uint32_t)(sizeof sizes / sizeof sizes[0]),
-                                       .pPoolSizes    = sizes};
+    VkDescriptorPoolCreateInfo info = {
+        .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+        .maxSets       = (uint32_t)(128 * scale),
+        .poolSizeCount = (uint32_t)(sizeof sizes / sizeof sizes[0]),
+        .pPoolSizes    = sizes,
+    };
 
     VkDescriptorPool pool;
     VK_CHECK(vkCreateDescriptorPool(device, &info, NULL, &pool));
     return pool;
 }
-
+//  base allocator (per layout bucket)
 void descriptor_allocator_init(DescriptorAllocator* alloc, VkDevice device)
 {
     alloc->device = device;
@@ -30,31 +34,37 @@ static VkDescriptorPool current_pool(DescriptorAllocator* a)
 {
     if(arrlen(a->pools) == 0)
     {
-        DescriptorPoolChunk chunk = {create_pool(a->device)};
+        DescriptorPoolChunk chunk = { create_pool(a->device, 1.0f), 1.0f };
         arrpush(a->pools, chunk);
     }
 
     return a->pools[arrlen(a->pools) - 1].pool;
 }
 
-VkResult descriptor_allocator_allocate(DescriptorAllocator* alloc, VkDescriptorSetLayout layout, VkDescriptorSet* out_set)
+VkResult descriptor_allocator_allocate(DescriptorAllocator* alloc,
+                                       VkDescriptorSetLayout layout,
+                                       VkDescriptorSet* out)
 {
-    VkDescriptorSetAllocateInfo info = {.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-                                        .descriptorPool     = current_pool(alloc),
-                                        .descriptorSetCount = 1,
-                                        .pSetLayouts        = &layout};
+    VkDescriptorSetAllocateInfo info = {
+        .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool     = current_pool(alloc),
+        .descriptorSetCount = 1,
+        .pSetLayouts        = &layout
+    };
 
-    VkResult r = vkAllocateDescriptorSets(alloc->device, &info, out_set);
+    VkResult r = vkAllocateDescriptorSets(alloc->device, &info, out);
     if(r == VK_SUCCESS)
         return VK_SUCCESS;
 
     if(r == VK_ERROR_OUT_OF_POOL_MEMORY || r == VK_ERROR_FRAGMENTED_POOL)
     {
-        DescriptorPoolChunk chunk = {create_pool(alloc->device)};
+        float new_scale = alloc->pools[arrlen(alloc->pools)-1].scale * 2.0f;
+
+        DescriptorPoolChunk chunk = { create_pool(alloc->device, new_scale), new_scale };
         arrpush(alloc->pools, chunk);
 
         info.descriptorPool = chunk.pool;
-        return vkAllocateDescriptorSets(alloc->device, &info, out_set);
+        return vkAllocateDescriptorSets(alloc->device, &info, out);
     }
 
     return r;
@@ -75,7 +85,10 @@ void descriptor_allocator_destroy(DescriptorAllocator* alloc)
 }
 
 
-// -------- Layout cache --------
+// layout cache 
+//
+
+
 
 void descriptor_layout_cache_init(DescriptorLayoutCache* cache)
 {
@@ -87,21 +100,23 @@ static uint32_t hash_layout_key(const DescriptorLayoutKey* k)
     return hash32_bytes(k->bindings, k->binding_count * sizeof(VkDescriptorSetLayoutBinding)) ^ k->binding_count;
 }
 
-VkDescriptorSetLayout descriptor_layout_cache_get(VkDevice device, DescriptorLayoutCache* cache, const VkDescriptorSetLayoutCreateInfo* info)
+VkDescriptorSetLayout descriptor_layout_cache_get(VkDevice device,
+                                                  DescriptorLayoutCache* cache,
+                                                  const VkDescriptorSetLayoutCreateInfo* info)
 {
     DescriptorLayoutKey key = {0};
-
     key.binding_count = info->bindingCount;
     memcpy(key.bindings, info->pBindings, info->bindingCount * sizeof(VkDescriptorSetLayoutBinding));
-
     key.hash = hash_layout_key(&key);
 
     for(int i = 0; i < arrlen(cache->entries); i++)
     {
         DescriptorLayoutEntry* e = &cache->entries[i];
 
-        if(e->key.hash == key.hash && e->key.binding_count == key.binding_count
-           && memcmp(e->key.bindings, key.bindings, key.binding_count * sizeof(VkDescriptorSetLayoutBinding)) == 0)
+        if(e->key.hash == key.hash &&
+           e->key.binding_count == key.binding_count &&
+           memcmp(e->key.bindings, key.bindings,
+                  key.binding_count * sizeof(VkDescriptorSetLayoutBinding)) == 0)
         {
             return e->layout;
         }
@@ -110,7 +125,7 @@ VkDescriptorSetLayout descriptor_layout_cache_get(VkDevice device, DescriptorLay
     VkDescriptorSetLayout layout;
     VK_CHECK(vkCreateDescriptorSetLayout(device, info, NULL, &layout));
 
-    DescriptorLayoutEntry entry = {key, layout};
+    DescriptorLayoutEntry entry = { key, layout };
     arrpush(cache->entries, entry);
 
     return layout;
@@ -124,15 +139,101 @@ void descriptor_layout_cache_destroy(VkDevice device, DescriptorLayoutCache* cac
     arrfree(cache->entries);
 }
 
-
-VkDescriptorSetLayout get_or_create_set_layout(VkDevice                            device,
-                                               DescriptorLayoutCache*              cache,
+VkDescriptorSetLayout get_or_create_set_layout(VkDevice device,
+                                               DescriptorLayoutCache* cache,
                                                const VkDescriptorSetLayoutBinding* bindings,
-                                               uint32_t                            binding_count)
+                                               uint32_t binding_count)
 {
-    VkDescriptorSetLayoutCreateInfo info = {.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-                                            .bindingCount = binding_count,
-                                            .pBindings    = bindings};
+    VkDescriptorSetLayoutCreateInfo info = {
+        .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = binding_count,
+        .pBindings    = bindings,
+    };
 
     return descriptor_layout_cache_get(device, cache, &info);
 }
+
+
+// manager 
+void descriptor_allocator_manager_init(DescriptorAllocatorManager* m, VkDevice device)
+{
+    m->device  = device;
+    m->buckets = NULL;
+}
+
+void descriptor_allocator_manager_destroy(DescriptorAllocatorManager* m)
+{
+    for(int i = 0; i < arrlen(m->buckets); i++)
+        descriptor_allocator_destroy(&m->buckets[i].alloc);
+
+    arrfree(m->buckets);
+}
+
+static DescriptorAllocator* get_bucket_for_key(DescriptorAllocatorManager* m,
+                                               const DescriptorLayoutKey* key)
+{
+    for(int i = 0; i < arrlen(m->buckets); i++)
+    {
+        DescriptorAllocatorBucket* b = &m->buckets[i];
+
+        if(b->key.hash == key->hash &&
+           b->key.binding_count == key->binding_count &&
+           memcmp(b->key.bindings, key->bindings,
+                  key->binding_count * sizeof(VkDescriptorSetLayoutBinding)) == 0)
+            return &b->alloc;
+    }
+
+    DescriptorAllocatorBucket bucket = {0};
+    bucket.key = *key;
+    descriptor_allocator_init(&bucket.alloc, m->device);
+
+    arrpush(m->buckets, bucket);
+    return &m->buckets[arrlen(m->buckets)-1].alloc;
+}
+
+VkResult descriptor_manager_allocate(DescriptorAllocatorManager* m,
+                                     DescriptorLayoutCache* cache,
+                                     const VkDescriptorSetLayoutCreateInfo* info,
+                                     VkDescriptorSet* out)
+{
+    DescriptorLayoutKey key = {0};
+    key.binding_count = info->bindingCount;
+    memcpy(key.bindings, info->pBindings, info->bindingCount * sizeof(VkDescriptorSetLayoutBinding));
+    key.hash = hash_layout_key(&key);
+
+    VkDescriptorSetLayout layout =
+        descriptor_layout_cache_get(m->device, cache, info);
+
+    DescriptorAllocator* alloc = get_bucket_for_key(m, &key);
+
+    return descriptor_allocator_allocate(alloc, layout, out);
+}
+
+
+
+// How you actually use this
+// persistent pools
+// DescriptorAllocatorManager persistent;
+// descriptor_allocator_manager_init(&persistent, device);
+//
+// per frame
+// DescriptorAllocatorManager per_frame[MAX_FRAMES];
+// for(int i=0; i<MAX_FRAMES; i++)
+//     descriptor_allocator_manager_init(&per_frame[i], device);
+//
+// allocate
+// VkDescriptorSetLayoutBinding bindings[] = { ... };
+//
+// VkDescriptorSetLayoutCreateInfo info = {
+//     .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+//     .bindingCount = ARRAYSIZE(bindings),
+//     .pBindings    = bindings
+// };
+//
+// VkDescriptorSet set;
+// descriptor_manager_allocate(&persistent, &layout_cache, &info, &set);
+//
+// per-frame reset
+// descriptor_allocator_reset(&per_frame[current_frame].buckets[i].alloc);
+//
+
