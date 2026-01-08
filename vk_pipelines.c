@@ -336,4 +336,3 @@ VkPipeline create_compute_pipeline(VkDevice               device,
 
     return pipeline;
 }
-$$
