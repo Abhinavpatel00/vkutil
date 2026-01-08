@@ -1,0 +1,293 @@
+<svg viewBox="0 0 1400 1800" xmlns="http://www.w3.org/2000/svg">
+  <!-- Title -->
+  <text x="700" y="35" font-size="28" font-weight="bold" text-anchor="middle" fill="#2c3e50">
+    Vulkan Descriptor Set Architectures
+  </text>
+  <text x="700" y="60" font-size="14" text-anchor="middle" fill="#7f8c8d">
+    Evolution from Frequency-Based to Bindless Design
+  </text>
+  
+  <!-- ===== FREQUENCY-BASED DESIGN ===== -->
+  <rect x="50" y="90" width="1300" height="620" fill="#e8f4f8" stroke="#3498db" stroke-width="3" rx="10"/>
+  <text x="700" y="125" font-size="22" font-weight="bold" text-anchor="middle" fill="#2980b9">
+    Approach 1: Frequency-Based Descriptor Sets
+  </text>
+  <text x="700" y="150" font-size="13" text-anchor="middle" fill="#7f8c8d">
+    Organize by update frequency - fewer binds than slot-based, but still per-draw overhead
+  </text>
+  
+  <!-- Set 0: Global/Per-Frame -->
+  <g transform="translate(100, 180)">
+    <rect x="0" y="0" width="360" height="200" fill="#27ae60" stroke="#229954" stroke-width="2" rx="6"/>
+    <text x="180" y="30" font-size="16" font-weight="bold" text-anchor="middle" fill="#fff">Set 0 - Global/Per-Frame</text>
+    <text x="180" y="50" font-size="12" text-anchor="middle" fill="#ecf0f1">Updates: Few times per frame</text>
+    
+    <rect x="20" y="70" width="320" height="50" fill="#fff" stroke="#229954" stroke-width="1.5" rx="4"/>
+    <text x="30" y="92" font-size="12" font-weight="bold" fill="#27ae60">Uniform Buffer:</text>
+    <text x="30" y="110" font-size="11" fill="#2c3e50">• View/Projection matrices</text>
+    
+    <rect x="20" y="130" width="320" height="50" fill="#fff" stroke="#229954" stroke-width="1.5" rx="4"/>
+    <text x="30" y="152" font-size="12" font-weight="bold" fill="#27ae60">Textures:</text>
+    <text x="30" y="170" font-size="11" fill="#2c3e50">• Shadow maps, environment maps</text>
+  </g>
+  
+  <!-- Set 1: Per-Material -->
+  <g transform="translate(520, 180)">
+    <rect x="0" y="0" width="360" height="200" fill="#f39c12" stroke="#d68910" stroke-width="2" rx="6"/>
+    <text x="180" y="30" font-size="16" font-weight="bold" text-anchor="middle" fill="#fff">Set 1 - Per-Material</text>
+    <text x="180" y="50" font-size="12" text-anchor="middle" fill="#ecf0f1">Updates: When material changes</text>
+    
+    <rect x="20" y="70" width="320" height="50" fill="#fff" stroke="#d68910" stroke-width="1.5" rx="4"/>
+    <text x="30" y="92" font-size="12" font-weight="bold" fill="#f39c12">Uniform Buffer:</text>
+    <text x="30" y="110" font-size="11" fill="#2c3e50">• Material properties, tints, reflectance</text>
+    
+    <rect x="20" y="130" width="320" height="50" fill="#fff" stroke="#d68910" stroke-width="1.5" rx="4"/>
+    <text x="30" y="152" font-size="12" font-weight="bold" fill="#f39c12">Textures:</text>
+    <text x="30" y="170" font-size="11" fill="#2c3e50">• Albedo, normal, roughness maps</text>
+  </g>
+  
+  <!-- Set 2: Per-Draw -->
+  <g transform="translate(940, 180)">
+    <rect x="0" y="0" width="360" height="200" fill="#e74c3c" stroke="#c0392b" stroke-width="2" rx="6"/>
+    <text x="180" y="30" font-size="16" font-weight="bold" text-anchor="middle" fill="#fff">Set 2 - Per-Draw</text>
+    <text x="180" y="50" font-size="12" text-anchor="middle" fill="#ecf0f1">Updates: Every draw call</text>
+    
+    <rect x="20" y="70" width="320" height="110" fill="#fff" stroke="#c0392b" stroke-width="1.5" rx="4"/>
+    <text x="30" y="92" font-size="12" font-weight="bold" fill="#e74c3c">Dynamic Uniform Buffer:</text>
+    <text x="30" y="110" font-size="11" fill="#2c3e50">• World transform matrix</text>
+    <text x="30" y="128" font-size="11" fill="#2c3e50">• Per-object constants</text>
+    <text x="30" y="150" font-size="10" font-style="italic" fill="#7f8c8d">Use dynamic offsets to avoid rebinding</text>
+  </g>
+  
+  <!-- Draw Call Sequence -->
+  <rect x="100" y="410" width="1200" height="240" fill="#fff" stroke="#34495e" stroke-width="2" rx="6"/>
+  <text x="700" y="440" font-size="16" font-weight="bold" text-anchor="middle" fill="#2c3e50">
+    Typical Frame Rendering Sequence
+  </text>
+  
+  <g transform="translate(130, 460)">
+    <!-- Frame start -->
+    <rect x="0" y="0" width="200" height="60" fill="#27ae60" stroke="#229954" stroke-width="2" rx="4"/>
+    <text x="100" y="25" font-size="11" font-weight="bold" text-anchor="middle" fill="#fff">Frame Start</text>
+    <text x="100" y="42" font-size="10" text-anchor="middle" fill="#ecf0f1">Bind Set 0 (once)</text>
+    
+    <!-- Draw loops -->
+    <rect x="0" y="80" width="1140" height="120" fill="#ecf0f1" stroke="#95a5a6" stroke-width="2" rx="4"/>
+    <text x="570" y="105" font-size="12" font-weight="bold" text-anchor="middle" fill="#2c3e50">For each object in scene:</text>
+    
+    <g transform="translate(40, 120)">
+      <rect x="0" y="0" width="180" height="50" fill="#f39c12" stroke="#d68910" stroke-width="1.5" rx="3"/>
+      <text x="90" y="20" font-size="10" text-anchor="middle" fill="#fff">If material changed:</text>
+      <text x="90" y="38" font-size="9" text-anchor="middle" fill="#fff">Bind Set 1</text>
+      
+      <text x="195" y="25" font-size="20" fill="#7f8c8d">→</text>
+      
+      <rect x="220" y="0" width="180" height="50" fill="#e74c3c" stroke="#c0392b" stroke-width="1.5" rx="3"/>
+      <text x="310" y="20" font-size="10" text-anchor="middle" fill="#fff">Always:</text>
+      <text x="310" y="38" font-size="9" text-anchor="middle" fill="#fff">Bind Set 2 (offset)</text>
+      
+      <text x="415" y="25" font-size="20" fill="#7f8c8d">→</text>
+      
+      <rect x="440" y="0" width="180" height="50" fill="#9b59b6" stroke="#8e44ad" stroke-width="1.5" rx="3"/>
+      <text x="530" y="20" font-size="10" text-anchor="middle" fill="#fff">If shader changed:</text>
+      <text x="530" y="38" font-size="9" text-anchor="middle" fill="#fff">Bind Pipeline</text>
+      
+      <text x="635" y="25" font-size="20" fill="#7f8c8d">→</text>
+      
+      <rect x="660" y="0" width="180" height="50" fill="#34495e" stroke="#2c3e50" stroke-width="1.5" rx="3"/>
+      <text x="750" y="28" font-size="10" font-weight="bold" text-anchor="middle" fill="#fff">vkCmdDraw()</text>
+    </g>
+  </g>
+  
+  <!-- Frequency-based issues -->
+  <rect x="100" y="670" width="580" height="20" fill="#e67e22" stroke="#d35400" stroke-width="1" rx="3"/>
+  <text x="390" y="685" font-size="11" font-weight="bold" text-anchor="middle" fill="#fff">⚠ Issues with Frequency-Based</text>
+  
+  <g transform="translate(120, 700)">
+    <text x="0" y="0" font-size="11" fill="#2c3e50">• Still 1-2 descriptor set binds per draw</text>
+    <text x="0" y="18" font-size="11" fill="#2c3e50">• Material descriptor management complexity</text>
+    <text x="0" y="36" font-size="11" fill="#2c3e50">• Texture streaming updates all affected materials</text>
+    <text x="0" y="54" font-size="11" fill="#2c3e50">• Difficult for GPU-based culling/submission</text>
+  </g>
+  
+  <!-- ===== BINDLESS DESIGN ===== -->
+  <rect x="50" y="780" width="1300" height="720" fill="#f0e8f8" stroke="#9b59b6" stroke-width="3" rx="10"/>
+  <text x="700" y="815" font-size="22" font-weight="bold" text-anchor="middle" fill="#8e44ad">
+    Approach 2: Bindless Descriptor Design
+  </text>
+  <text x="700" y="840" font-size="13" text-anchor="middle" fill="#7f8c8d">
+    Bind once globally - all resources accessible via indices - minimal CPU overhead
+  </text>
+  
+  <!-- Global Descriptor Set (Set 0) -->
+  <rect x="100" y="870" width="1200" height="360" fill="#fff" stroke="#9b59b6" stroke-width="2" rx="6"/>
+  <text x="700" y="900" font-size="18" font-weight="bold" text-anchor="middle" fill="#8e44ad">
+    Set 0 - Global Descriptor Set (Bound Once Per Frame)
+  </text>
+  
+  <!-- Storage buffers -->
+  <g transform="translate(130, 920)">
+    <rect x="0" y="0" width="260" height="100" fill="#3498db" stroke="#2980b9" stroke-width="2" rx="4"/>
+    <text x="130" y="25" font-size="13" font-weight="bold" text-anchor="middle" fill="#fff">Material Storage Buffer</text>
+    <rect x="10" y="40" width="240" height="50" fill="#ecf0f1" stroke="#2980b9" stroke-width="1" rx="3"/>
+    <text x="15" y="57" font-size="10" font-family="monospace" fill="#2c3e50">MaterialData materials[]</text>
+    <text x="15" y="73" font-size="9" fill="#7f8c8d">{albedoTint, tilingX, tilingY,</text>
+    <text x="15" y="85" font-size="9" fill="#7f8c8d"> albedoTexIdx, normalTexIdx...}</text>
+    
+    <rect x="280" y="0" width="260" height="100" fill="#3498db" stroke="#2980b9" stroke-width="2" rx="4"/>
+    <text x="410" y="25" font-size="13" font-weight="bold" text-anchor="middle" fill="#fff">Transform Storage Buffer</text>
+    <rect x="290" y="40" width="240" height="50" fill="#ecf0f1" stroke="#2980b9" stroke-width="1" rx="3"/>
+    <text x="295" y="57" font-size="10" font-family="monospace" fill="#2c3e50">TransformData transforms[]</text>
+    <text x="295" y="73" font-size="9" fill="#7f8c8d">{mat4x3 transform}</text>
+    
+    <rect x="560" y="0" width="260" height="100" fill="#3498db" stroke="#2980b9" stroke-width="2" rx="4"/>
+    <text x="690" y="25" font-size="13" font-weight="bold" text-anchor="middle" fill="#fff">Draw Storage Buffer</text>
+    <rect x="570" y="40" width="240" height="50" fill="#ecf0f1" stroke="#2980b9" stroke-width="1" rx="3"/>
+    <text x="575" y="57" font-size="10" font-family="monospace" fill="#2c3e50">DrawData drawData[]</text>
+    <text x="575" y="73" font-size="9" fill="#7f8c8d">{materialIdx, transformIdx,</text>
+    <text x="575" y="85" font-size="9" fill="#7f8c8d"> vertexOffset}</text>
+    
+    <rect x="840" y="0" width="260" height="100" fill="#3498db" stroke="#2980b9" stroke-width="2" rx="4"/>
+    <text x="970" y="25" font-size="13" font-weight="bold" text-anchor="middle" fill="#fff">Vertex Storage Buffer</text>
+    <rect x="850" y="40" width="240" height="50" fill="#ecf0f1" stroke="#2980b9" stroke-width="1" rx="3"/>
+    <text x="855" y="57" font-size="10" font-family="monospace" fill="#2c3e50">float vertexData[]</text>
+    <text x="855" y="73" font-size="9" fill="#7f8c8d">{pos, normal, uv, tangent...}</text>
+    <text x="855" y="85" font-size="9" fill="#e74c3c">Manual fetch in shader</text>
+  </g>
+  
+  <!-- Texture descriptor array -->
+  <g transform="translate(130, 1040)">
+    <rect x="0" y="0" width="1100" height="80" fill="#e74c3c" stroke="#c0392b" stroke-width="2" rx="4"/>
+    <text x="550" y="28" font-size="14" font-weight="bold" text-anchor="middle" fill="#fff">
+      Texture Descriptor Array (NOT a texture array!)
+    </text>
+    <text x="550" y="48" font-size="11" text-anchor="middle" fill="#ecf0f1">
+      All scene textures accessible by index - different sizes/formats allowed
+    </text>
+    <text x="550" y="68" font-size="10" text-anchor="middle" fill="#ecf0f1">
+      materialTextures[0], materialTextures[1], ... materialTextures[N]
+    </text>
+  </g>
+  
+  <!-- Index buffer -->
+  <g transform="translate(130, 1140)">
+    <rect x="0" y="0" width="1100" height="60" fill="#16a085" stroke="#138d75" stroke-width="2" rx="4"/>
+    <text x="550" y="25" font-size="13" font-weight="bold" text-anchor="middle" fill="#fff">
+      Index Buffer (Bound once via vkCmdBindIndexBuffer)
+    </text>
+    <text x="550" y="45" font-size="10" text-anchor="middle" fill="#ecf0f1">
+      All index data in one large buffer - used with vkCmdDrawIndexed
+    </text>
+  </g>
+  
+  <!-- Shader execution flow -->
+  <rect x="100" y="1260" width="1200" height="210" fill="#fff" stroke="#34495e" stroke-width="2" rx="6"/>
+  <text x="700" y="1290" font-size="16" font-weight="bold" text-anchor="middle" fill="#2c3e50">
+    Bindless Rendering Flow
+  </text>
+  
+  <g transform="translate(130, 1310)">
+    <!-- Frame setup -->
+    <rect x="0" y="0" width="220" height="70" fill="#27ae60" stroke="#229954" stroke-width="2" rx="4"/>
+    <text x="110" y="22" font-size="11" font-weight="bold" text-anchor="middle" fill="#fff">Frame Setup (Once)</text>
+    <text x="110" y="40" font-size="9" text-anchor="middle" fill="#ecf0f1">1. Bind Set 0</text>
+    <text x="110" y="54" font-size="9" text-anchor="middle" fill="#ecf0f1">2. Bind Index Buffer</text>
+    
+    <text x="235" y="35" font-size="20" fill="#7f8c8d">→</text>
+    
+    <!-- Per draw -->
+    <rect x="260" y="0" width="900" height="70" fill="#ecf0f1" stroke="#95a5a6" stroke-width="2" rx="4"/>
+    <text x="710" y="22" font-size="11" font-weight="bold" text-anchor="middle" fill="#2c3e50">For each draw call:</text>
+    
+    <g transform="translate(280, 35)">
+      <rect x="0" y="0" width="150" height="25" fill="#9b59b6" stroke="#8e44ad" stroke-width="1" rx="3"/>
+      <text x="75" y="17" font-size="9" text-anchor="middle" fill="#fff">1. Pipeline (if changed)</text>
+      
+      <text x="165" y="12" font-size="14" fill="#7f8c8d">→</text>
+      
+      <rect x="185" y="0" width="150" height="25" fill="#e74c3c" stroke="#c0392b" stroke-width="1" rx="3"/>
+      <text x="260" y="17" font-size="9" text-anchor="middle" fill="#fff">2. Push drawDataIndex</text>
+      
+      <text x="350" y="12" font-size="14" fill="#7f8c8d">→</text>
+      
+      <rect x="370" y="0" width="150" height="25" fill="#34495e" stroke="#2c3e50" stroke-width="1" rx="3"/>
+      <text x="445" y="17" font-size="9" font-weight="bold" text-anchor="middle" fill="#fff">3. vkCmdDrawIndexed</text>
+      
+      <text x="535" y="12" font-size="14" fill="#27ae60">→</text>
+      
+      <rect x="555" y="0" width="280" height="25" fill="#f8f9fa" stroke="#27ae60" stroke-width="1" rx="3"/>
+      <text x="695" y="17" font-size="9" text-anchor="middle" fill="#27ae60">Shader looks up everything via indices!</text>
+    </g>
+  </g>
+  
+  <!-- Shader code example -->
+  <g transform="translate(130, 1395)">
+    <rect x="0" y="0" width="530" height="85" fill="#2c3e50" stroke="#34495e" stroke-width="2" rx="4"/>
+    <text x="265" y="20" font-size="12" font-weight="bold" text-anchor="middle" fill="#ecf0f1">Vertex Shader</text>
+    <text x="10" y="40" font-size="9" font-family="monospace" fill="#52c9a5">DrawData dd = drawData[drawIndex];</text>
+    <text x="10" y="54" font-size="9" font-family="monospace" fill="#52c9a5">TransformData td = transforms[dd.transformIdx];</text>
+    <text x="10" y="68" font-size="9" font-family="monospace" fill="#52c9a5">vec4 pos = vertexData[gl_VertexIndex+dd.vertexOffset];</text>
+    <text x="10" y="82" font-size="9" font-family="monospace" fill="#52c9a5">posWorld = td.transform * pos;</text>
+    
+    <rect x="560" y="0" width="580" height="85" fill="#2c3e50" stroke="#34495e" stroke-width="2" rx="4"/>
+    <text x="850" y="20" font-size="12" font-weight="bold" text-anchor="middle" fill="#ecf0f1">Fragment Shader</text>
+    <text x="570" y="40" font-size="9" font-family="monospace" fill="#52c9a5">DrawData dd = drawData[drawIndex];</text>
+    <text x="570" y="54" font-size="9" font-family="monospace" fill="#52c9a5">MaterialData md = materials[dd.materialIdx];</text>
+    <text x="570" y="68" font-size="9" font-family="monospace" fill="#52c9a5">vec4 albedo = texture(</text>
+    <text x="570" y="82" font-size="9" font-family="monospace" fill="#52c9a5">  sampler2D(materialTextures[md.albedoTexIdx], samp), uv);</text>
+  </g>
+  
+  <!-- ===== COMPARISON ===== -->
+  <rect x="50" y="1540" width="640" height="230" fill="#fff9e6" stroke="#f39c12" stroke-width="3" rx="10"/>
+  <text x="370" y="1575" font-size="18" font-weight="bold" text-anchor="middle" fill="#d68910">
+    🎯 Key Differences
+  </text>
+  
+  <g transform="translate(80, 1590)">
+    <text x="0" y="0" font-size="13" font-weight="bold" fill="#3498db">Frequency-Based:</text>
+    <text x="0" y="22" font-size="11" fill="#2c3e50">• Bind 1-2 sets per draw</text>
+    <text x="0" y="40" font-size="11" fill="#2c3e50">• Textures in material descriptors</text>
+    <text x="0" y="58" font-size="11" fill="#2c3e50">• Texture streaming = update materials</text>
+    <text x="0" y="76" font-size="11" fill="#2c3e50">• Uses uniform buffers</text>
+    <text x="0" y="94" font-size="11" fill="#2c3e50">• Standard vertex buffer binding</text>
+    <text x="0" y="112" font-size="11" fill="#2c3e50">• Works on all Vulkan hardware</text>
+    <text x="0" y="135" font-size="11" font-weight="bold" fill="#27ae60">✓ Good for most renderers</text>
+  </g>
+  
+  <g transform="translate(360, 1590)">
+    <text x="0" y="0" font-size="13" font-weight="bold" fill="#9b59b6">Bindless:</text>
+    <text x="0" y="22" font-size="11" fill="#2c3e50">• Bind once per frame</text>
+    <text x="0" y="40" font-size="11" fill="#2c3e50">• Textures in global array</text>
+    <text x="0" y="58" font-size="11" fill="#2c3e50">• Texture streaming = update array</text>
+    <text x="0" y="76" font-size="11" fill="#2c3e50">• Uses storage buffers</text>
+    <text x="0" y="94" font-size="11" fill="#2c3e50">• Manual vertex fetching</text>
+    <text x="0" y="112" font-size="11" fill="#2c3e50">• Needs high descriptor limits</text>
+    <text x="0" y="135" font-size="11" font-weight="bold" fill="#e74c3c">⚡ Best for complex scenes</text>
+  </g>
+  
+  <!-- Benefits box -->
+  <rect x="710" y="1540" width="640" height="230" fill="#e8f8e8" stroke="#27ae60" stroke-width="3" rx="10"/>
+  <text x="1030" y="1575" font-size="18" font-weight="bold" text-anchor="middle" fill="#229954">
+    ✨ Bindless Benefits
+  </text>
+  
+  <g transform="translate(740, 1595)">
+    <text x="0" y="0" font-size="12" font-weight="bold" fill="#27ae60">Performance:</text>
+    <text x="0" y="20" font-size="10" fill="#2c3e50">• Minimal CPU overhead (constant binding)</text>
+    <text x="0" y="36" font-size="10" fill="#2c3e50">• Fewer API calls per draw</text>
+    
+    <text x="0" y="60" font-size="12" font-weight="bold" fill="#27ae60">Flexibility:</text>
+    <text x="0" y="80" font-size="10" fill="#2c3e50">• Decouples textures from materials</text>
+    <text x="0" y="96" font-size="10" fill="#2c3e50">• Easy texture streaming implementation</text>
+    <text x="0" y="112" font-size="10" fill="#2c3e50">• Enables GPU-based culling/submission</text>
+    
+    <text x="0" y="136" font-size="12" font-weight="bold" fill="#e74c3c">Requirements:</text>
+    <text x="0" y="156" font-size="10" fill="#2c3e50">• VK_EXT_descriptor_indexing (Vulkan 1.2+)</text>
+    <text x="0" y="172" font-size="10" fill="#2c3e50">• High maxPerStageDescriptorSampledImages</text>
+  </g>
+  
+  <!-- Footer note -->
+  <text x="700" y="1795" font-size="11" font-style="italic" text-anchor="middle" fill="#7f8c8d">
+    Hybrid approach: Use bindless for world rendering + frequency-based for post-processing
+  </text>
+</svg>
